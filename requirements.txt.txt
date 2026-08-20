@@ -1,0 +1,27 @@
+# Web & App Frameworks
+streamlit
+flask
+dash
+starlette
+uvicorn
+gunicorn
+waitress
+
+# Data Processing & Analysis
+pandas
+numpy
+pyarrow
+openpyxl
+pydantic
+
+# Visualization
+plotly
+altair
+pydeck
+
+# Utilities & Helpers
+requests
+python-dateutil
+gitpython
+pillow
+watchdog
