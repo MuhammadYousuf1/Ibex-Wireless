@@ -1,4 +1,4 @@
-from dash import dash_table, html, dcc
+from dash import dash_table, html, dcc, Input, Output, State, callback
 import pandas as pd
 import plotly.express as px
 from pages import STYLE_TABLE, default_data_conditional
@@ -32,13 +32,48 @@ def _format_dollars(value):
         return str(value)
 
 
-def layout(_df=None):
-    """Layout for the Accessory GP page."""
+def _get_display_columns(df):
+    return [col for col in [
+        COL_DATE, COL_MONTH, COL_SALESPERSON, COL_CUSTOMER, COL_PRODUCT,
+        COL_CATEGORY, COL_QTY, COL_UNIT_PRICE, COL_DISCOUNTS, COL_EXT_PRICE, COL_EXT_COST,
+        COL_TOTAL_SALES, COL_GP
+    ] if col in df.columns]
+
+
+def _filtered_df(start_date, end_date):
+    """Return ACCESSORY_DF filtered by the optional date range."""
     df = ACCESSORY_DF.copy()
+    if COL_DATE in df.columns and start_date and end_date:
+        date_series = pd.to_datetime(df[COL_DATE], errors='coerce')
+        df = df.loc[
+            (date_series >= pd.to_datetime(start_date)) &
+            (date_series <= pd.to_datetime(end_date))
+        ].copy()
+    return df
 
+
+def _date_bounds(df):
     if COL_DATE in df.columns:
-        df[COL_DATE] = pd.to_datetime(df[COL_DATE], errors='coerce').dt.strftime('%Y-%m-%d')
+        date_series = pd.to_datetime(df[COL_DATE], errors='coerce').dropna()
+        if not date_series.empty:
+            return date_series.min(), date_series.max()
+    return None, None
 
+
+def _build_table_frame(df):
+    display_columns = _get_display_columns(df)
+    sort_col = COL_DATE if COL_DATE in df.columns else None
+    # Format dates to a sortable string before building the display table
+    # (matches the original page behavior and avoids mixed-type sorts).
+    frame = df.copy()
+    if COL_DATE in frame.columns:
+        frame[COL_DATE] = pd.to_datetime(frame[COL_DATE], errors='coerce').dt.strftime('%Y-%m-%d')
+    _, display_df = _build_display_table(frame, display_columns, sort_by=sort_col, include_total_row=True)
+    return display_columns, display_df
+
+
+def _build_content(df):
+    """Build the KPI cards, charts, and table for the accessory data."""
     # --- KPIs ---
     total_sales = pd.to_numeric(df[COL_TOTAL_SALES], errors='coerce').fillna(0).sum() if COL_TOTAL_SALES in df.columns else 0.0
     total_gp = pd.to_numeric(df[COL_GP], errors='coerce').fillna(0).sum() if COL_GP in df.columns else 0.0
@@ -97,18 +132,12 @@ def layout(_df=None):
         fig_line = px.line(title='Monthly GP Trend')
 
     # --- Data Table ---
-    display_columns = [col for col in [
-        COL_DATE, COL_MONTH, COL_SALESPERSON, COL_CUSTOMER, COL_PRODUCT,
-        COL_CATEGORY, COL_QTY, COL_UNIT_PRICE, COL_DISCOUNTS, COL_EXT_PRICE, COL_EXT_COST,
-        COL_TOTAL_SALES, COL_GP
-    ] if col in df.columns]
+    display_columns, table_df = _build_table_frame(df)
 
-    # Sort by date descending
-    sort_col = COL_DATE if COL_DATE in df.columns else None
-    _, table_df = _build_display_table(df, display_columns, sort_by=sort_col, include_total_row=True)
+    # Download date-range bounds based on the current (filtered) data
+    min_date, max_date = _date_bounds(df)
 
     return html.Div([
-        html.H2('🔌 Accessory GP Dashboard', className='page-title'),
 
         # KPI Cards
         html.Div(className='kpi-container', children=[
@@ -147,7 +176,36 @@ def layout(_df=None):
 
         # Data Table
         html.Div(className='table-container', children=[
-            html.H3('📋 Accessory Transactions'),
+            html.Div(
+                className='table-section-header',
+                children=[
+                    html.H3('📋 Accessory Transactions'),
+                    html.Div(
+                        className='table-section-actions',
+                        children=[
+                            html.Div(className='filter-container', children=[
+                                html.Div(className='filter-label', children='📅 Download Range:'),
+                                dcc.DatePickerRange(
+                                    id='accessory-download-date-range',
+                                    min_date_allowed=min_date,
+                                    max_date_allowed=max_date,
+                                    start_date=min_date,
+                                    end_date=max_date,
+                                    display_format='MM-DD-YYYY',
+                                    className='filter-date-picker',
+                                ),
+                            ]),
+                            html.Button(
+                                'Download CSV',
+                                id='accessory-download-csv-btn',
+                                n_clicks=0,
+                                className='download-btn',
+                            ),
+                            dcc.Download(id='accessory-download-csv-data'),
+                        ],
+                    ),
+                ],
+            ),
             dash_table.DataTable(
                 id='accessory-table',
                 columns=[{'name': col, 'id': col} for col in table_df.columns],
@@ -186,3 +244,64 @@ def layout(_df=None):
             ),
         ]),
     ])
+
+
+def layout(_df=None):
+    """Layout for the Accessory GP page with a top date-range filter."""
+    df = ACCESSORY_DF.copy()
+    min_date, max_date = _date_bounds(df)
+
+    return html.Div([
+        html.H2('🔌 Accessory GP Dashboard', className='page-title'),
+        html.Div(
+            className='filter-container',
+            children=[
+                html.Div(className='filter-label', children='📅 Date Range:'),
+                dcc.DatePickerRange(
+                    id='accessory-dashboard-date-range',
+                    min_date_allowed=min_date,
+                    max_date_allowed=max_date,
+                    start_date=min_date,
+                    end_date=max_date,
+                    display_format='MM-DD-YYYY',
+                    className='filter-date-picker',
+                ),
+            ],
+        ),
+        html.Div(id='accessory-dynamic-content'),
+    ])
+
+
+@callback(
+    Output('accessory-dynamic-content', 'children'),
+    Input('accessory-dashboard-date-range', 'start_date'),
+    Input('accessory-dashboard-date-range', 'end_date'),
+)
+def _update_accessory_content(start_date, end_date):
+    df = _filtered_df(start_date, end_date)
+    return _build_content(df)
+
+
+@callback(
+    Output('accessory-table', 'data'),
+    Input('accessory-download-date-range', 'start_date'),
+    Input('accessory-download-date-range', 'end_date'),
+)
+def _update_accessory_table(start_date, end_date):
+    df = _filtered_df(start_date, end_date)
+    _, display_df = _build_table_frame(df)
+    return display_df.to_dict('records')
+
+
+@callback(
+    Output('accessory-download-csv-data', 'data'),
+    Input('accessory-download-csv-btn', 'n_clicks'),
+    State('accessory-download-date-range', 'start_date'),
+    State('accessory-download-date-range', 'end_date'),
+    prevent_initial_call=True,
+)
+def _download_accessory_csv(_n_clicks, start_date, end_date):
+    export_df = _filtered_df(start_date, end_date)
+    display_columns = _get_display_columns(export_df)
+    filtered_df = export_df.loc[:, display_columns]
+    return dcc.send_data_frame(filtered_df.to_csv, 'accessory_transactions.csv', index=False)
