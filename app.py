@@ -13,10 +13,10 @@ PAGE_CONTENTS = {
     for key, page in PAGE_LAYOUTS.items()
 }
 
-dash_app = Dash(__name__, title='EAGLE WIRELESS DASHBOARD', suppress_callback_exceptions=True)
+dash_app = Dash(__name__, title='IBEX WIRELESS DASHBOARD', suppress_callback_exceptions=True)
 
 dash_app.layout = html.Div([
-    html.H1('EAGLE WIRELESS DASHBOARD', className='app-title'),
+    html.H1('IBEX WIRELESS DASHBOARD', className='app-title'),
     dcc.Tabs(
         id='page-tabs',
         value='spiff',
