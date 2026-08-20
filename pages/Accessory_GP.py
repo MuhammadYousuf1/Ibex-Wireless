@@ -29,7 +29,7 @@ def _get_display_columns(df):
     ] if col in df.columns]
 
 
-def _filtered_df(start_date, end_date, salesperson=None, product=None, customer=None):
+def _filtered_df(start_date, end_date, salesperson=None, product=None):
     """Return ACCESSORY_DF filtered by the optional date range and dropdown filters."""
     df = ACCESSORY_DF.copy()
     if COL_DATE in df.columns and start_date and end_date:
@@ -42,8 +42,6 @@ def _filtered_df(start_date, end_date, salesperson=None, product=None, customer=
         df = df[df[COL_SALESPERSON].astype(str) == str(salesperson)]
     if product and COL_PRODUCT in df.columns:
         df = df[df[COL_PRODUCT].astype(str) == str(product)]
-    if customer and COL_CUSTOMER in df.columns:
-        df = df[df[COL_CUSTOMER].astype(str) == str(customer)]
     return df
 
 
@@ -178,18 +176,18 @@ def _build_content(df):
                     html.Div(
                         className='table-section-actions',
                         children=[
-                            html.Div(className='filter-container', children=[
-                                html.Div(className='filter-label', children='📅 Download Range:'),
-                                dcc.DatePickerRange(
-                                    id='accessory-download-date-range',
-                                    min_date_allowed=min_date,
-                                    max_date_allowed=max_date,
-                                    start_date=min_date,
-                                    end_date=max_date,
-                                    display_format='MM-DD-YYYY',
-                                    className='filter-date-picker',
-                                ),
-                            ]),
+                            html.Span(
+                                'Download range:',
+                                className='download-label',
+                            ),
+                            dcc.DatePickerRange(
+                                id='accessory-download-date-range',
+                                min_date_allowed=min_date,
+                                max_date_allowed=max_date,
+                                start_date=min_date,
+                                end_date=max_date,
+                                display_format='MM-DD-YYYY',
+                            ),
                             html.Button(
                                 'Download CSV',
                                 id='accessory-download-csv-btn',
@@ -229,7 +227,6 @@ def layout(_df=None):
 
     salesperson_options = [{'label': str(s), 'value': str(s)} for s in sorted(df[COL_SALESPERSON].dropna().unique())] if COL_SALESPERSON in df.columns else []
     product_options = [{'label': str(s), 'value': str(s)} for s in sorted(df[COL_PRODUCT].dropna().unique())] if COL_PRODUCT in df.columns else []
-    customer_options = [{'label': str(s), 'value': str(s)} for s in sorted(df[COL_CUSTOMER].dropna().unique())] if COL_CUSTOMER in df.columns else []
 
     return html.Div([
         html.H2('🔌 Accessory GP Dashboard', className='page-title'),
@@ -255,20 +252,11 @@ def layout(_df=None):
                     clearable=True,
                     className='filter-dropdown',
                 ),
-                html.Div(className='filter-label', children='📦 Product:'),
+                html.Div(className='filter-label', children='📦 Product Desc:'),
                 dcc.Dropdown(
                     id='accessory-filter-product',
                     options=product_options,
                     placeholder='All Products',
-                    multi=False,
-                    clearable=True,
-                    className='filter-dropdown',
-                ),
-                html.Div(className='filter-label', children='👤 Customer:'),
-                dcc.Dropdown(
-                    id='accessory-filter-customer',
-                    options=customer_options,
-                    placeholder='All Customers',
                     multi=False,
                     clearable=True,
                     className='filter-dropdown',
@@ -285,10 +273,9 @@ def layout(_df=None):
     Input('accessory-dashboard-date-range', 'end_date'),
     Input('accessory-filter-salesperson', 'value'),
     Input('accessory-filter-product', 'value'),
-    Input('accessory-filter-customer', 'value'),
 )
-def _update_accessory_content(start_date, end_date, salesperson, product, customer):
-    df = _filtered_df(start_date, end_date, salesperson, product, customer)
+def _update_accessory_content(start_date, end_date, salesperson, product):
+    df = _filtered_df(start_date, end_date, salesperson, product)
     return _build_content(df)
 
 

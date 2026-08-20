@@ -121,18 +121,18 @@ def _build_sales_content(df):
                     html.Div(
                         className='table-section-actions',
                         children=[
-                            html.Div(className='filter-container', children=[
-                                html.Div(className='filter-label', children='📅 Date Range:'),
-                                dcc.DatePickerRange(
-                                    id='sales-download-date-range',
-                                    min_date_allowed=min_date,
-                                    max_date_allowed=max_date,
-                                    start_date=min_date,
-                                    end_date=max_date,
-                                    display_format='MM-DD-YYYY',
-                                    className='filter-date-picker',
-                                ),
-                            ]),
+                            html.Span(
+                                'Download range:',
+                                className='download-label',
+                            ),
+                            dcc.DatePickerRange(
+                                id='sales-download-date-range',
+                                min_date_allowed=min_date,
+                                max_date_allowed=max_date,
+                                start_date=min_date,
+                                end_date=max_date,
+                                display_format='MM-DD-YYYY',
+                            ),
                             html.Button(
                                 'Download CSV',
                                 id='sales-download-csv-btn',
