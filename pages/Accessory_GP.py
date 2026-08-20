@@ -21,17 +21,6 @@ COL_TOTAL_SALES = 'Total Sales'
 COL_MONTH = 'Month'
 
 
-def _currency_columns():
-    return {COL_UNIT_PRICE, COL_EXT_PRICE, COL_EXT_COST, COL_GP, COL_TOTAL_SALES}
-
-
-def _format_dollars(value):
-    try:
-        return f"${float(value):,.2f}"
-    except (ValueError, TypeError):
-        return str(value)
-
-
 def _get_display_columns(df):
     return [col for col in [
         COL_DATE, COL_MONTH, COL_SALESPERSON, COL_CUSTOMER, COL_PRODUCT,
@@ -40,8 +29,8 @@ def _get_display_columns(df):
     ] if col in df.columns]
 
 
-def _filtered_df(start_date, end_date):
-    """Return ACCESSORY_DF filtered by the optional date range."""
+def _filtered_df(start_date, end_date, salesperson=None, product=None, customer=None):
+    """Return ACCESSORY_DF filtered by the optional date range and dropdown filters."""
     df = ACCESSORY_DF.copy()
     if COL_DATE in df.columns and start_date and end_date:
         date_series = pd.to_datetime(df[COL_DATE], errors='coerce')
@@ -49,6 +38,12 @@ def _filtered_df(start_date, end_date):
             (date_series >= pd.to_datetime(start_date)) &
             (date_series <= pd.to_datetime(end_date))
         ].copy()
+    if salesperson and COL_SALESPERSON in df.columns:
+        df = df[df[COL_SALESPERSON].astype(str) == str(salesperson)]
+    if product and COL_PRODUCT in df.columns:
+        df = df[df[COL_PRODUCT].astype(str) == str(product)]
+    if customer and COL_CUSTOMER in df.columns:
+        df = df[df[COL_CUSTOMER].astype(str) == str(customer)]
     return df
 
 
@@ -221,35 +216,20 @@ def _build_content(df):
                 style_header=STYLE_TABLE['style_header'],
                 style_cell=STYLE_TABLE['style_cell'],
                 style_data=STYLE_TABLE['style_data'],
-                style_data_conditional=default_data_conditional(total_row_index=len(table_df) - 1) + [
-                    {
-                        'if': {'column_id': COL_GP},
-                        'backgroundColor': '#fff9c4',
-                        'color': '#856404 !important',
-                        'fontWeight': '600',
-                    },
-                ],
-                style_header_conditional=[
-                    {
-                        'if': {'column_id': COL_GP},
-                        'backgroundColor': '#fff9c4 !important',
-                        'color': '#856404 !important',
-                        'fontWeight': '600',
-                    },
-                ],
-                style_cell_conditional=[
-                    {'if': {'column_id': col}, 'textAlign': 'right'}
-                    for col in display_columns if col in _currency_columns()
-                ],
+                style_data_conditional=default_data_conditional(total_row_index=len(table_df) - 1),
             ),
         ]),
     ])
 
 
 def layout(_df=None):
-    """Layout for the Accessory GP page with a top date-range filter."""
+    """Layout for the Accessory GP page with filters matching the other pages."""
     df = ACCESSORY_DF.copy()
     min_date, max_date = _date_bounds(df)
+
+    salesperson_options = [{'label': str(s), 'value': str(s)} for s in sorted(df[COL_SALESPERSON].dropna().unique())] if COL_SALESPERSON in df.columns else []
+    product_options = [{'label': str(s), 'value': str(s)} for s in sorted(df[COL_PRODUCT].dropna().unique())] if COL_PRODUCT in df.columns else []
+    customer_options = [{'label': str(s), 'value': str(s)} for s in sorted(df[COL_CUSTOMER].dropna().unique())] if COL_CUSTOMER in df.columns else []
 
     return html.Div([
         html.H2('🔌 Accessory GP Dashboard', className='page-title'),
@@ -266,6 +246,33 @@ def layout(_df=None):
                     display_format='MM-DD-YYYY',
                     className='filter-date-picker',
                 ),
+                html.Div(className='filter-label', children='🧑‍💼 Salesperson:'),
+                dcc.Dropdown(
+                    id='accessory-filter-salesperson',
+                    options=salesperson_options,
+                    placeholder='All Salespeople',
+                    multi=False,
+                    clearable=True,
+                    className='filter-dropdown',
+                ),
+                html.Div(className='filter-label', children='📦 Product:'),
+                dcc.Dropdown(
+                    id='accessory-filter-product',
+                    options=product_options,
+                    placeholder='All Products',
+                    multi=False,
+                    clearable=True,
+                    className='filter-dropdown',
+                ),
+                html.Div(className='filter-label', children='👤 Customer:'),
+                dcc.Dropdown(
+                    id='accessory-filter-customer',
+                    options=customer_options,
+                    placeholder='All Customers',
+                    multi=False,
+                    clearable=True,
+                    className='filter-dropdown',
+                ),
             ],
         ),
         html.Div(id='accessory-dynamic-content'),
@@ -276,9 +283,12 @@ def layout(_df=None):
     Output('accessory-dynamic-content', 'children'),
     Input('accessory-dashboard-date-range', 'start_date'),
     Input('accessory-dashboard-date-range', 'end_date'),
+    Input('accessory-filter-salesperson', 'value'),
+    Input('accessory-filter-product', 'value'),
+    Input('accessory-filter-customer', 'value'),
 )
-def _update_accessory_content(start_date, end_date):
-    df = _filtered_df(start_date, end_date)
+def _update_accessory_content(start_date, end_date, salesperson, product, customer):
+    df = _filtered_df(start_date, end_date, salesperson, product, customer)
     return _build_content(df)
 
 
