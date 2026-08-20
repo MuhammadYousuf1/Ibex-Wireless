@@ -13,9 +13,9 @@ PAGE_CONTENTS = {
     for key, page in PAGE_LAYOUTS.items()
 }
 
-app = Dash(__name__, title='EAGLE WIRELESS DASHBOARD', suppress_callback_exceptions=True)
+dash_app = Dash(__name__, title='EAGLE WIRELESS DASHBOARD', suppress_callback_exceptions=True)
 
-app.layout = html.Div([
+dash_app.layout = html.Div([
     html.H1('EAGLE WIRELESS DASHBOARD', className='app-title'),
     dcc.Tabs(
         id='page-tabs',
@@ -29,10 +29,19 @@ app.layout = html.Div([
 ])
 
 
-@app.callback(Output('page-content', 'children'), Input('page-tabs', 'value'))
+@dash_app.callback(Output('page-content', 'children'), Input('page-tabs', 'value'))
 def render_tab(tab_value):
     return PAGE_CONTENTS.get(tab_value, PAGE_CONTENTS['spiff'])
 
 
+# Vercel deployment entrypoint
+# ---------------------------------------
+# Vercel auto-detects the Flask framework (from requirements.txt) and serves a
+# WSGI application exposed as the top-level `app` variable in a recognised
+# entrypoint file. Dash is built on Flask, so we expose Dash's underlying Flask
+# server as `app` for Vercel, while keeping `dash_app` for layouts/callbacks.
+app = dash_app.server
+
+
 if __name__ == '__main__':
-    app.run(debug=True, host='127.0.0.1', port=8050)
+    dash_app.run(debug=True, host='127.0.0.1', port=8050)

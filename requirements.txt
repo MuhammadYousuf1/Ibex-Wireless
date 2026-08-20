@@ -7,4 +7,3 @@ requests==2.34.2
 python-dateutil==2.9.0.post0
 python-dotenv
 dash==4.4.0
-asgiref
